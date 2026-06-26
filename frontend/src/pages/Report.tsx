@@ -13,6 +13,40 @@ import DashboardView from '../components/DashboardView'
 import ErrorBoundary from '../components/ErrorBoundary'
 
 type Status = 'pending' | 'running' | 'complete' | 'error'
+const AGENTS = ['scout', 'atlas', 'forge', 'deck', 'connect'] as const
+
+function deriveStatuses(report: any): Record<string, Status> {
+  const next = Object.fromEntries(AGENTS.map((agent) => [agent, report?.[`${agent}_output`] ? 'complete' : 'pending'])) as Record<string, Status>
+
+  if (report?.status === 'failed') {
+    for (const agent of AGENTS) {
+      if (next[agent] !== 'complete') next[agent] = 'error'
+    }
+    return next
+  }
+
+  if (report?.status === 'running' || report?.status === 'pending') {
+    const firstPending = AGENTS.find((agent) => next[agent] === 'pending')
+    if (firstPending) next[firstPending] = 'running'
+    if (firstPending === 'forge' && next.scout === 'pending') next.scout = 'running'
+    if (firstPending === 'scout') next.atlas = next.atlas === 'complete' ? 'complete' : 'running'
+  }
+
+  return next
+}
+
+function progressLog(report: any): { agent: string; msg: string; ts: number }[] {
+  if (!report) return []
+  const now = Date.now()
+  const lines: { agent: string; msg: string; ts: number }[] = [{ agent: 'system', msg: 'Dispatch accepted. Pipeline is warming up...', ts: now }]
+  for (const agent of AGENTS) {
+    if (report[`${agent}_output`]) {
+      lines.push({ agent, msg: `${agent} output saved`, ts: now })
+    }
+  }
+  if (report.status === 'failed') lines.push({ agent: 'system', msg: 'Pipeline failed. Check backend logs for the provider error.', ts: now })
+  return lines
+}
 
 export default function Report() {
   const { id = '' } = useParams()
@@ -29,8 +63,15 @@ export default function Report() {
   const [view, setView] = useState<'running' | 'dashboard'>('running')
 
   useEffect(() => {
-    api.getReport(id).then((r) => {
+    let closed = false
+    let sawSocketEvent = false
+
+    const applyReport = (r: any) => {
+      if (closed) return
       setReport(r)
+      setStatuses((current) => ({ ...deriveStatuses(r), ...Object.fromEntries(Object.entries(current).filter(([, status]) => status === 'complete')) }))
+      if (!sawSocketEvent) setLogs(progressLog(r))
+      if (r.status === 'failed') setFatalError('Pipeline failed. Check backend logs for details.')
       // If the user is opening a previously completed report, skip the running view
       if (r.status === 'complete') {
         setStatuses({
@@ -42,12 +83,16 @@ export default function Report() {
         })
         setView('dashboard')
       }
-    })
+    }
+
+    api.getReport(id).then(applyReport).catch((e) => setFatalError(e.message))
 
     const ws = openAgentSocket(id, (e) => {
       if (e.type === 'log') {
+        sawSocketEvent = true
         setLogs((l) => [...l, { agent: e.agent, msg: e.msg, ts: Date.now() }])
       } else if (e.type === 'status') {
+        sawSocketEvent = true
         setStatuses((s) => ({ ...s, [e.agent]: e.status }))
         if (e.status === 'complete' && e.output) {
           setReport((r: any) => (r ? { ...r, [`${e.agent}_output`]: e.output } : r))
@@ -65,10 +110,19 @@ export default function Report() {
         })
       }
     })
+
+    const poll = window.setInterval(() => {
+      api.getReport(id).then(applyReport).catch(() => {})
+    }, 2500)
+
     ws.onclose = () => {
       setTimeout(() => api.getReport(id).then(setReport).catch(() => {}), 200)
     }
-    return () => ws.close()
+    return () => {
+      closed = true
+      window.clearInterval(poll)
+      ws.close()
+    }
   }, [id])
 
   if (!report) {

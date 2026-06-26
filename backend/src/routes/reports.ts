@@ -17,6 +17,7 @@ router.post('/generate', async (req, res) => {
     return res.status(400).json({ error: 'idea required' })
   }
   const r = await db.createReport({ founderId: req.founderId!, ideaText: idea })
+  await db.updateReport(r.id, { status: 'running' })
   schedulePipeline(r.id)
   res.json({ reportId: r.id })
 })
