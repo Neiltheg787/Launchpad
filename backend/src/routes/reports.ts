@@ -8,6 +8,7 @@ import { Router } from 'express'
 import { db } from '../db/index.js'
 import { executePipeline, isPipelineActive, schedulePipeline, scheduleSingleAgent, type AgentName } from '../queue/pipeline.js'
 import { refreshReport } from '../queue/weeklyRefresh.js'
+import { completeFastPipeline, shouldUseFastPipeline } from '../services/demoPipeline.js'
 
 const router = Router()
 
@@ -18,6 +19,10 @@ router.post('/generate', async (req, res) => {
   }
   const r = await db.createReport({ founderId: req.founderId!, ideaText: idea })
   await db.updateReport(r.id, { status: 'running' })
+  if (shouldUseFastPipeline()) {
+    await completeFastPipeline(r.id, idea)
+    return res.json({ reportId: r.id })
+  }
   schedulePipeline(r.id)
   res.json({ reportId: r.id })
 })
@@ -69,6 +74,10 @@ router.post('/:id/resume', async (req, res) => {
   const r = await db.getReport(req.params.id)
   if (!r || r.founderId !== req.founderId) return res.status(404).json({ error: 'Not found' })
   if (r.status === 'complete') return res.json({ ok: true, status: 'complete' })
+  if (shouldUseFastPipeline()) {
+    await completeFastPipeline(r.id, r.ideaText)
+    return res.json({ ok: true, status: 'complete', active: false })
+  }
   if (r.status === 'failed') await db.updateReport(r.id, { status: 'running' })
   if (isPipelineActive(r.id)) return res.json({ ok: true, status: 'running', active: true })
 
