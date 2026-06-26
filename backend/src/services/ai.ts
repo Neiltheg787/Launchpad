@@ -3,20 +3,12 @@
  *
  * - Uses GMI Cloud by default via its OpenAI-compatible API.
  * - Single configurable model for all agents.
- * - response_format: { type: 'json_object' } for grammar-constrained JSON output.
  * - 3 retries on malformed JSON with progressively stricter prompts.
  * - Hard timeout per call (default 45s).
  */
-import OpenAI from 'openai'
-
-const API_KEY = process.env.GMI_API_KEY || process.env.GMI_API_KEY
-const BASE_URL = process.env.GMI_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.gmi-serving.com/v1'
-const DEFAULT_MODEL = process.env.GMI_MODEL || process.env.OPENAI_MODEL || 'meta-llama/Llama-3.3-70B-Instruct'
-
-const client = new OpenAI({
-  apiKey: API_KEY,
-  baseURL: BASE_URL,
-})
+const API_KEY = process.env.GMI_API_KEY || process.env.OPENAI_API_KEY
+const BASE_URL = (process.env.GMI_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.gmi-serving.com/v1').replace(/\/+$/, '')
+const DEFAULT_MODEL = process.env.GMI_MODEL || process.env.OPENAI_MODEL || 'deepseek-ai/DeepSeek-V4-Pro'
 
 export type AgentRole = 'scout' | 'atlas' | 'forge' | 'deck' | 'connect' | 'pivot' | 'simulator' | 'voice-coach' | 'features'
 
@@ -41,6 +33,37 @@ export interface CallOpts {
 }
 
 const DEFAULT_TIMEOUT = 45_000
+const ENABLE_RESPONSE_FORMAT = process.env.GMI_RESPONSE_FORMAT === 'true'
+
+interface ChatMessage {
+  role: 'system' | 'user' | 'assistant'
+  content: string
+}
+
+interface ChatChoice {
+  message?: {
+    content?: string | null
+  }
+  delta?: {
+    content?: string | null
+  }
+}
+
+interface ChatResponse {
+  choices?: ChatChoice[]
+}
+
+export class AIProviderError extends Error {
+  status: number
+  body: string
+
+  constructor(status: number, body: string) {
+    super(`GMI request failed with ${status}: ${body.slice(0, 500)}`)
+    this.name = 'AIProviderError'
+    this.status = status
+    this.body = body
+  }
+}
 
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -53,6 +76,111 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
       reject(err)
     })
   })
+}
+
+async function readErrorBody(res: Response): Promise<string> {
+  const text = await res.text()
+  try {
+    return JSON.stringify(JSON.parse(text))
+  } catch {
+    return text || res.statusText
+  }
+}
+
+async function createChatCompletion(
+  role: AgentRole,
+  messages: ChatMessage[],
+  opts: CallOpts,
+): Promise<ChatResponse> {
+  const body = {
+    model: MODEL[role],
+    messages,
+    temperature: opts.temperature ?? 0.3,
+    max_tokens: opts.maxTokens ?? 2048,
+    ...(opts.jsonMode && ENABLE_RESPONSE_FORMAT ? { response_format: { type: 'json_object' } } : {}),
+  }
+
+  const res = await fetch(`${BASE_URL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!res.ok) {
+    const errorBody = await readErrorBody(res)
+    console.warn(`[ai:${role}] provider ${res.status}: ${errorBody.slice(0, 1000)}`)
+    throw new AIProviderError(res.status, errorBody)
+  }
+
+  return (await res.json()) as ChatResponse
+}
+
+async function streamChatCompletion(
+  role: AgentRole,
+  messages: ChatMessage[],
+  opts: CallOpts,
+  onToken: (delta: string) => void,
+): Promise<string> {
+  const body = {
+    model: MODEL[role],
+    messages,
+    stream: true,
+    temperature: opts.temperature ?? 0.3,
+    max_tokens: opts.maxTokens ?? 2048,
+    ...(opts.jsonMode && ENABLE_RESPONSE_FORMAT ? { response_format: { type: 'json_object' } } : {}),
+  }
+
+  const res = await fetch(`${BASE_URL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!res.ok) {
+    const errorBody = await readErrorBody(res)
+    console.warn(`[ai:${role}] provider ${res.status}: ${errorBody.slice(0, 1000)}`)
+    throw new AIProviderError(res.status, errorBody)
+  }
+
+  if (!res.body) return ''
+
+  const decoder = new TextDecoder()
+  const reader = res.body.getReader()
+  let pending = ''
+  let buffer = ''
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    pending += decoder.decode(value, { stream: true })
+    const lines = pending.split(/\r?\n/)
+    pending = lines.pop() ?? ''
+
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed.startsWith('data:')) continue
+      const data = trimmed.slice(5).trim()
+      if (!data || data === '[DONE]') continue
+      try {
+        const chunk = JSON.parse(data) as ChatResponse
+        const delta = chunk.choices?.[0]?.delta?.content ?? chunk.choices?.[0]?.message?.content ?? ''
+        if (delta) {
+          buffer += delta
+          onToken(delta)
+        }
+      } catch {
+        // Ignore keepalive or non-JSON SSE lines from OpenAI-compatible providers.
+      }
+    }
+  }
+
+  return buffer
 }
 
 /** One-shot completion with a hard timeout. */
@@ -71,20 +199,18 @@ export async function callAgent(
   console.log(`[ai:${role}] → ${model}  (timeout ${timeout}ms)`)
   try {
     const res = await withTimeout(
-      client.chat.completions.create({
-        model,
-        messages: [
+      createChatCompletion(
+        role,
+        [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage },
         ],
-        temperature: opts.temperature ?? 0.3,
-        max_tokens: opts.maxTokens ?? 2048,
-        ...(opts.jsonMode ? { response_format: { type: 'json_object' as const } } : {}),
-      }),
+        opts,
+      ),
       timeout,
       `[ai:${role}]`,
     )
-    const out = res.choices[0]?.message?.content ?? ''
+    const out = res.choices?.[0]?.message?.content ?? ''
     console.log(`[ai:${role}] ← ${out.length} chars in ${Date.now() - started}ms`)
     return out
   } catch (err) {
@@ -99,20 +225,19 @@ export async function* callAgentStream(
   systemPrompt: string,
   userMessage: string,
 ): AsyncGenerator<string> {
-  const model = MODEL[role]
-  const stream = await client.chat.completions.create({
-    model,
-    messages: [
+  let buffer = ''
+  await streamChatCompletion(
+    role,
+    [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userMessage },
     ],
-    stream: true,
-    temperature: 0.3,
-  })
-  for await (const chunk of stream) {
-    const delta = chunk.choices[0]?.delta?.content
-    if (delta) yield delta
-  }
+    { temperature: 0.3 },
+    (delta) => {
+      buffer += delta
+    },
+  )
+  if (buffer) yield buffer
 }
 
 /**
@@ -140,28 +265,21 @@ export async function callAgentJSONStream<T>(
 
   let buffer = ''
   const streamPromise = (async () => {
-    const stream = await client.chat.completions.create({
-      model,
-      messages: [
+    buffer = await streamChatCompletion(
+      role,
+      [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
       ],
-      stream: true,
-      temperature: opts.temperature ?? 0.3,
-      max_tokens: opts.maxTokens ?? 2048,
-      response_format: { type: 'json_object' as const },
-    })
-    for await (const chunk of stream) {
-      const delta = chunk.choices[0]?.delta?.content
-      if (delta) {
-        buffer += delta
+      { ...opts, jsonMode: true },
+      (delta) => {
         try {
           onToken(delta)
         } catch {
           // never let UI broadcast errors crash the stream
         }
-      }
-    }
+      },
+    )
     return buffer
   })()
 

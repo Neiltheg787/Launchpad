@@ -53,7 +53,7 @@ app.use(
 
 /* ───── Public ───── */
 app.get('/health', (_req, res) =>
-  res.json({ ok: true, ai: process.env.GMI_API_KEY || process.env.GMI_API_KEY ? 'gmi' : 'unset' }),
+  res.json({ ok: true, ai: process.env.GMI_API_KEY || process.env.OPENAI_API_KEY ? 'gmi' : 'unset' }),
 )
 
 // Email-open tracking pixel — public, 1x1 transparent GIF
@@ -94,7 +94,7 @@ async function main() {
   const PORT = Number(process.env.PORT) || 4000
   server.listen(PORT, () => {
     console.log(`[launchpad] backend :${PORT}`)
-    console.log(`[launchpad] ai       ${process.env.GMI_API_KEY || process.env.GMI_API_KEY ? 'gmi cloud' : 'UNSET - set GMI_API_KEY in .env'}`)
+    console.log(`[launchpad] ai       ${process.env.GMI_API_KEY || process.env.OPENAI_API_KEY ? 'gmi cloud' : 'UNSET - set GMI_API_KEY in .env'}`)
     console.log(`[launchpad] db       ${dbMode()}`)
     console.log(`[launchpad] queue    ${process.env.REDIS_URL ? 'bullmq (stub)' : 'in-process'}`)
   })
