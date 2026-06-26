@@ -1,4 +1,5 @@
-const BASE = '/api'
+const BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? '/api' : '/_/backend/api')
+const WS_BASE = import.meta.env.VITE_WS_BASE || (import.meta.env.DEV ? '/ws' : '/_/backend/ws')
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(BASE + path, {
@@ -10,7 +11,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }))
-    throw new Error(err.error || `Request failed: ${res.status}`)
+    throw new Error(err.error || err.details || `Request failed: ${res.status}`)
   }
   return res.json()
 }
@@ -91,7 +92,7 @@ export const api = {
 
 export function openAgentSocket(reportId: string, onEvent: (e: any) => void) {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-  const ws = new WebSocket(`${proto}://${location.host}/ws/agent/${reportId}`)
+  const ws = new WebSocket(`${proto}://${location.host}${WS_BASE}/agent/${reportId}`)
   ws.onmessage = (ev) => {
     try {
       onEvent(JSON.parse(ev.data))
