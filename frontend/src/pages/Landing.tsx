@@ -97,7 +97,7 @@ export default function Landing() {
 
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <Link
-                to="/signup"
+                to="/validate"
                 className="btn anim-fade-up"
                 style={{ animationDelay: instant ? '0ms' : `${BOOT_OFFSET + 1450}ms` }}
                 data-cursor="link"
@@ -258,7 +258,7 @@ export default function Landing() {
           </Reveal>
           <Reveal delay={160}>
             <div className="mt-12 pointer-events-auto">
-              <Link to="/signup" data-cursor="link" className="btn">
+              <Link to="/validate" data-cursor="link" className="btn">
                 Run first report <span className="arrow">↗</span>
               </Link>
             </div>

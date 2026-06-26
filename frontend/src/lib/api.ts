@@ -18,12 +18,6 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  /* auth */
-  signup: (data: { email: string; password: string; name: string }) =>
-    req<{ token: string; user: any }>('/auth/signup', { method: 'POST', body: JSON.stringify(data) }),
-  login: (data: { email: string; password: string }) =>
-    req<{ token: string; user: any }>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
-
   /* founder + dna */
   me: () => req<any>('/founder/profile'),
   updateProfile: (data: any) => req<any>('/founder/profile', { method: 'PATCH', body: JSON.stringify(data) }),

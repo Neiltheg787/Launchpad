@@ -17,7 +17,6 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { api } from '../lib/api'
-import { useAuth } from '../lib/auth'
 
 type AgentName = 'scout' | 'atlas' | 'forge' | 'deck' | 'connect'
 type AgentStatus = 'complete' | 'pending' | 'running' | 'error'
@@ -77,7 +76,6 @@ function fadeIn(i: number) {
 }
 
 export default function Dashboard() {
-  const { user } = useAuth()
   const [reports, setReports] = useState<ReportRow[] | null>(null)
   const [latest, setLatest] = useState<ReportRow | null>(null)
   const [dna, setDna] = useState<DNA | null>(null)
@@ -140,7 +138,7 @@ export default function Dashboard() {
   return (
     <main className="min-h-screen pt-28 pb-24 bg-[#0a0a0f] text-white">
       <div className="shell max-w-7xl mx-auto px-6">
-        <Header name={user?.name?.split(' ')[0]} />
+        <Header />
 
         {loading ? (
           <div className="mt-16 text-center text-white/70 font-mono text-sm">
@@ -163,7 +161,7 @@ export default function Dashboard() {
 
 /* ───────────────────── header ───────────────────── */
 
-function Header({ name }: { name?: string }) {
+function Header() {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -176,7 +174,7 @@ function Header({ name }: { name?: string }) {
           // LAUNCHPAD · DASHBOARD
         </div>
         <h1 className="mt-3 font-display text-4xl md:text-5xl font-semibold tracking-tight">
-          Welcome back{name ? `, ${name}` : ''}
+          Welcome back
         </h1>
       </div>
       <Link

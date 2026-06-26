@@ -1,9 +1,6 @@
 import { Link } from 'react-router-dom'
-import { useAuth } from '../lib/auth'
 
 export default function Navbar() {
-  const { user, logout } = useAuth()
-
   return (
     <header
       className="fixed top-0 inset-x-0 z-50"
@@ -55,40 +52,23 @@ export default function Navbar() {
           ))}
         </nav>
 
-        {/* Right — status + auth */}
+        {/* Right — status + primary action */}
         <div className="flex items-center gap-5">
           <div className="hidden md:flex items-center gap-2 font-mono text-[10px] tracking-[0.15em] uppercase" style={{ color: 'var(--color-online)' }}>
             <span className="live-dot" />
             ONLINE
           </div>
-
-          {user ? (
-            <>
-              <Link to="/dashboard" data-cursor="link" className="nav-link hidden sm:inline-block">
-                STUDIO
-              </Link>
-              <button onClick={logout} data-cursor="link" className="btn-link">
-                SIGN OUT
-              </button>
-            </>
-          ) : (
-            <>
-              <Link to="/login" data-cursor="link" className="nav-link hidden sm:inline-block">
-                SIGN IN
-              </Link>
-              <Link
-                to="/signup"
-                data-cursor="link"
-                className="font-mono text-[10px] tracking-[0.14em] uppercase px-4 py-2 rounded-full"
-                style={{
-                  background: 'var(--color-charge)',
-                  color: 'var(--color-void)',
-                }}
-              >
-                ACCESS ↗
-              </Link>
-            </>
-          )}
+          <Link
+            to="/validate"
+            data-cursor="link"
+            className="font-mono text-[10px] tracking-[0.14em] uppercase px-4 py-2 rounded-full"
+            style={{
+              background: 'var(--color-charge)',
+              color: 'var(--color-void)',
+            }}
+          >
+            New report ↗
+          </Link>
         </div>
       </div>
     </header>
