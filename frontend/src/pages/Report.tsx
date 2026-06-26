@@ -5,7 +5,7 @@
  *  - When all 5 agents complete and the user clicks "VIEW DASHBOARD" → DashboardView
  *  - On reload of a completed report, jumps straight to DashboardView
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { api, openAgentSocket } from '../lib/api'
 import RunningView from '../components/RunningView'
@@ -44,6 +44,10 @@ function progressLog(report: any): { agent: string; msg: string; ts: number }[] 
       lines.push({ agent, msg: `${agent} output saved`, ts: now })
     }
   }
+  const running = AGENTS.find((agent) => !report[`${agent}_output`])
+  if (report.status === 'running' && running) {
+    lines.push({ agent: running, msg: `${running} is running. This stage can take about a minute.`, ts: now })
+  }
   if (report.status === 'failed') lines.push({ agent: 'system', msg: 'Pipeline failed. Check backend logs for the provider error.', ts: now })
   return lines
 }
@@ -61,6 +65,8 @@ export default function Report() {
   const [logs, setLogs] = useState<{ agent: string; msg: string; ts: number }[]>([])
   const [fatalError, setFatalError] = useState<string | null>(null)
   const [view, setView] = useState<'running' | 'dashboard'>('running')
+  const startedAt = useRef(Date.now())
+  const resumed = useRef(false)
 
   useEffect(() => {
     let closed = false
@@ -72,6 +78,14 @@ export default function Report() {
       setStatuses((current) => ({ ...deriveStatuses(r), ...Object.fromEntries(Object.entries(current).filter(([, status]) => status === 'complete')) }))
       if (!sawSocketEvent) setLogs(progressLog(r))
       if (r.status === 'failed') setFatalError('Pipeline failed. Check backend logs for details.')
+      const hasAnyOutput = AGENTS.some((agent) => r[`${agent}_output`])
+      if (!hasAnyOutput && r.status === 'running' && !resumed.current && Date.now() - startedAt.current > 12_000) {
+        resumed.current = true
+        setLogs((l) => [...l, { agent: 'system', msg: 'No agent output yet. Nudging backend pipeline...', ts: Date.now() }])
+        api.resumeReport(id).catch((e) => {
+          setLogs((l) => [...l, { agent: 'system', msg: `Resume failed: ${e.message}`, ts: Date.now() }])
+        })
+      }
       // If the user is opening a previously completed report, skip the running view
       if (r.status === 'complete') {
         setStatuses({

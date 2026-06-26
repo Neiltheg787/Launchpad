@@ -31,13 +31,23 @@ import { cacheKey, getCached, setCached, findFuzzyMatch } from '../services/cach
 import { dnaFromFounder, dnaSignature } from '../services/dnaContext.js'
 import { runAgentWithTimeout, dataOrNull, type AgentResult } from '../services/orchestrator.js'
 
+const activePipelines = new Set<string>()
+
 /* ============================================================
    Helpers
    ============================================================ */
 
 async function executePipeline(reportId: string): Promise<void> {
+  if (activePipelines.has(reportId)) {
+    broadcast(reportId, { type: 'log', agent: 'system', msg: 'Pipeline is already running...' })
+    return
+  }
+  activePipelines.add(reportId)
   const report = await db.getReport(reportId)
-  if (!report) return
+  if (!report) {
+    activePipelines.delete(reportId)
+    return
+  }
 
   const short = reportId.slice(0, 8)
   const log = (agent: string, msg: string) => broadcast(reportId, { type: 'log', agent, msg })
@@ -311,12 +321,18 @@ async function executePipeline(reportId: string): Promise<void> {
     console.error(`[pipeline ${short}] ✗ FAILED: ${msg}`)
     await db.updateReport(reportId, { status: 'failed' })
     broadcast(reportId, { type: 'error', msg })
+  } finally {
+    activePipelines.delete(reportId)
   }
 }
 
 export function schedulePipeline(reportId: string) {
   // 400ms delay so the client has time to open its WebSocket
   setTimeout(() => executePipeline(reportId), 400)
+}
+
+export function isPipelineActive(reportId: string) {
+  return activePipelines.has(reportId)
 }
 
 /* ============================================================

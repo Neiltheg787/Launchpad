@@ -29,6 +29,11 @@ export const api = {
     req<{ reportId: string }>('/reports/generate', { method: 'POST', body: JSON.stringify(data) }),
   getReport: (id: string) => req<any>(`/reports/${id}`),
   getScoreHistory: (id: string) => req<{ score: number; history: any[] }>(`/reports/${id}/score`),
+  resumeReport: (reportId: string) =>
+    req<{ ok: boolean; status: string; active?: boolean }>(`/reports/${reportId}/resume`, {
+      method: 'POST',
+      body: '{}',
+    }),
   regenerate: (reportId: string, agent?: 'scout' | 'atlas' | 'forge' | 'deck' | 'connect') =>
     req<{ reportId: string; agent: string }>(`/reports/${reportId}/regenerate`, {
       method: 'POST',

@@ -6,7 +6,7 @@
  */
 import { Router } from 'express'
 import { db } from '../db/index.js'
-import { schedulePipeline, scheduleSingleAgent, type AgentName } from '../queue/pipeline.js'
+import { isPipelineActive, schedulePipeline, scheduleSingleAgent, type AgentName } from '../queue/pipeline.js'
 import { refreshReport } from '../queue/weeklyRefresh.js'
 
 const router = Router()
@@ -63,6 +63,15 @@ router.post('/:id/regenerate', async (req, res) => {
     schedulePipeline(r.id)
   }
   res.json({ reportId: r.id, agent: agent || 'all' })
+})
+
+router.post('/:id/resume', async (req, res) => {
+  const r = await db.getReport(req.params.id)
+  if (!r || r.founderId !== req.founderId) return res.status(404).json({ error: 'Not found' })
+  if (r.status === 'complete') return res.json({ ok: true, status: 'complete' })
+  if (r.status === 'failed') await db.updateReport(r.id, { status: 'running' })
+  if (!isPipelineActive(r.id)) schedulePipeline(r.id)
+  res.json({ ok: true, status: 'running', active: true })
 })
 
 router.post('/:id/refresh', async (req, res) => {
