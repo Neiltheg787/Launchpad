@@ -6,9 +6,13 @@
  * - 3 retries on malformed JSON with progressively stricter prompts.
  * - Hard timeout per call (default 45s).
  */
-const API_KEY = process.env.GMI_API_KEY || process.env.OPENAI_API_KEY
-const BASE_URL = (process.env.GMI_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.gmi-serving.com/v1').replace(/\/+$/, '')
-const DEFAULT_MODEL = process.env.GMI_MODEL || process.env.OPENAI_MODEL || 'deepseek-ai/DeepSeek-V4-Pro'
+const API_KEY = process.env.GMI_MAAS_API_KEY || process.env.GMI_API_KEY || process.env.OPENAI_API_KEY
+const BASE_URL = (
+  process.env.GMI_MAAS_BASE_URL
+    ? `${process.env.GMI_MAAS_BASE_URL.replace(/\/+$/, '')}/v1`
+    : process.env.GMI_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.gmi-serving.com/v1'
+).replace(/\/+$/, '')
+const DEFAULT_MODEL = process.env.GMI_MODELS || process.env.GMI_MODEL || process.env.OPENAI_MODEL || 'deepseek-ai/DeepSeek-V4-Pro'
 
 export type AgentRole = 'scout' | 'atlas' | 'forge' | 'deck' | 'connect' | 'pivot' | 'simulator' | 'voice-coach' | 'features'
 

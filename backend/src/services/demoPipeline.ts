@@ -6,7 +6,7 @@ import type { DeckOutput } from '../agents/Deck.js'
 import type { ConnectOutput } from '../agents/Connect.js'
 
 export function shouldUseFastPipeline() {
-  return process.env.FAST_PIPELINE === 'true' || process.env.VERCEL === '1' || process.env.NODE_ENV === 'production'
+  return process.env.FAST_PIPELINE === 'true' || process.env.VERCEL === '1'
 }
 
 function nameFromIdea(idea: string) {

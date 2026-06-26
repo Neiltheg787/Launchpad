@@ -9,6 +9,7 @@ import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
 import path from 'path'
+import fs from 'fs'
 
 import { initWebSocket } from './websocket.js'
 import { initDB, db, dbMode } from './db/index.js'
@@ -53,7 +54,7 @@ app.use(
 
 /* ───── Public ───── */
 app.get('/health', (_req, res) =>
-  res.json({ ok: true, ai: process.env.GMI_API_KEY || process.env.OPENAI_API_KEY ? 'gmi' : 'unset' }),
+  res.json({ ok: true, ai: process.env.GMI_MAAS_API_KEY || process.env.GMI_API_KEY || process.env.OPENAI_API_KEY ? 'gmi' : 'unset' }),
 )
 
 // Email-open tracking pixel — public, 1x1 transparent GIF
@@ -84,6 +85,15 @@ app.use('/api/launchkit', requireAuth, launchkitRouter)
 app.use('/api/features', requireAuth, featuresRouter)
 app.use('/api/pulse', requireAuth, pulseRouter)
 
+const frontendDist = path.join(process.cwd(), 'frontend', 'dist')
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist))
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/storage')) return next()
+    res.sendFile(path.join(frontendDist, 'index.html'))
+  })
+}
+
 app.use(errorHandler)
 
 async function main() {
@@ -94,7 +104,7 @@ async function main() {
   const PORT = Number(process.env.PORT) || 4000
   server.listen(PORT, () => {
     console.log(`[launchpad] backend :${PORT}`)
-    console.log(`[launchpad] ai       ${process.env.GMI_API_KEY || process.env.OPENAI_API_KEY ? 'gmi cloud' : 'UNSET - set GMI_API_KEY in .env'}`)
+    console.log(`[launchpad] ai       ${process.env.GMI_MAAS_API_KEY || process.env.GMI_API_KEY || process.env.OPENAI_API_KEY ? 'gmi cloud' : 'UNSET - set GMI_MAAS_API_KEY or GMI_API_KEY'}`)
     console.log(`[launchpad] db       ${dbMode()}`)
     console.log(`[launchpad] queue    ${process.env.REDIS_URL ? 'bullmq (stub)' : 'in-process'}`)
   })
