@@ -43,10 +43,6 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
 }
 
-export function signFounderToken(id: string): string {
-  return jwt.sign({ sub: id }, SECRET, { expiresIn: '7d' })
-}
-
 async function getOrCreateGuestFounder() {
   const existing = await db.getFounderByEmail(GUEST_EMAIL)
   if (existing) return existing

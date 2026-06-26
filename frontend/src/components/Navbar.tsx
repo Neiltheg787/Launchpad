@@ -52,24 +52,6 @@ export default function Navbar() {
           ))}
         </nav>
 
-        {/* Right — status + primary action */}
-        <div className="flex items-center gap-5">
-          <div className="hidden md:flex items-center gap-2 font-mono text-[10px] tracking-[0.15em] uppercase" style={{ color: 'var(--color-online)' }}>
-            <span className="live-dot" />
-            ONLINE
-          </div>
-          <Link
-            to="/validate"
-            data-cursor="link"
-            className="font-mono text-[10px] tracking-[0.14em] uppercase px-4 py-2 rounded-full"
-            style={{
-              background: 'var(--color-charge)',
-              color: 'var(--color-void)',
-            }}
-          >
-            New report ↗
-          </Link>
-        </div>
       </div>
     </header>
   )

@@ -582,7 +582,6 @@ function VoicePitchCoach({ reportId }: { reportId: string }) {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          authorization: `Bearer ${localStorage.getItem('ac_token')}`,
         },
         body: JSON.stringify({ reportId, transcript: voice.transcript }),
       })
@@ -823,7 +822,6 @@ function WarmIntroMapper({ reportId }: { reportId: string }) {
 
 /* ─── Download Reports ─── */
 function DownloadReports({ reportId }: { reportId: string }) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('ac_token') : ''
   return (
     <div
       className="rounded-xl border p-5 flex flex-col"
@@ -835,7 +833,7 @@ function DownloadReports({ reportId }: { reportId: string }) {
       <div className="text-sm text-ink-dim mb-4 flex-1">Professional PDFs with graphs & data</div>
       <div className="space-y-2">
         <a
-          href={`/api/export/validation-report/${reportId}?token=${token}`}
+          href={`/api/export/validation-report/${reportId}`}
           target="_blank"
           rel="noreferrer"
           className="block w-full text-center font-mono text-[10px] uppercase tracking-[0.15em] py-2 rounded"
@@ -844,7 +842,7 @@ function DownloadReports({ reportId }: { reportId: string }) {
           Validation Report .pdf ↓
         </a>
         <a
-          href={`/api/export/market-research/${reportId}?token=${token}`}
+          href={`/api/export/market-research/${reportId}`}
           target="_blank"
           rel="noreferrer"
           className="block w-full text-center font-mono text-[10px] uppercase tracking-[0.15em] py-2 rounded"

@@ -334,7 +334,7 @@ export default function DashboardView({ report }: { report: ReportLike }) {
         <SectionDivider num="06" label="EXPORT" sub="Download professional reports" />
         <div className="grid md:grid-cols-2 gap-4">
           <a
-            href={`/api/export/validation-report/${report.id}?token=${typeof window !== 'undefined' ? localStorage.getItem('ac_token') : ''}`}
+            href={`/api/export/validation-report/${report.id}`}
             target="_blank"
             rel="noreferrer"
             className="rounded-xl border p-6 flex items-center gap-4 transition hover:border-[var(--color-charge)]"
@@ -352,7 +352,7 @@ export default function DashboardView({ report }: { report: ReportLike }) {
             </div>
           </a>
           <a
-            href={`/api/export/market-research/${report.id}?token=${typeof window !== 'undefined' ? localStorage.getItem('ac_token') : ''}`}
+            href={`/api/export/market-research/${report.id}`}
             target="_blank"
             rel="noreferrer"
             className="rounded-xl border p-6 flex items-center gap-4 transition hover:border-[var(--color-charge)]"
@@ -1953,7 +1953,6 @@ function InvestorList({ investors, reportId }: { investors: ConnectInvestor[]; r
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          authorization: `Bearer ${localStorage.getItem('ac_token')}`,
         },
         body: JSON.stringify({ reportId, vcId }),
       })

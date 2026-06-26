@@ -16,7 +16,6 @@ import { startWeeklyRefresh, refreshReport } from './queue/weeklyRefresh.js'
 import { requireAuth } from './middleware/auth.js'
 import { errorHandler } from './middleware/errorHandler.js'
 
-import authRouter from './routes/auth.js'
 import reportsRouter from './routes/reports.js'
 import investorsRouter from './routes/investors.js'
 import exportRouter from './routes/export.js'
@@ -56,7 +55,6 @@ app.use(
 app.get('/health', (_req, res) =>
   res.json({ ok: true, ai: process.env.GMI_API_KEY || process.env.GMI_API_KEY ? 'gmi' : 'unset' }),
 )
-app.use('/api/auth', authRouter)
 
 // Email-open tracking pixel — public, 1x1 transparent GIF
 const PIXEL = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64')

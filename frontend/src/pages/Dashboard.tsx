@@ -174,7 +174,7 @@ function Header() {
           // LAUNCHPAD · DASHBOARD
         </div>
         <h1 className="mt-3 font-display text-4xl md:text-5xl font-semibold tracking-tight">
-          Welcome back
+          Launchpad studio
         </h1>
       </div>
       <Link

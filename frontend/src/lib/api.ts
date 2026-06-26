@@ -1,12 +1,10 @@
 const BASE = '/api'
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = localStorage.getItem('ac_token')
   const res = await fetch(BASE + path, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers || {}),
     },
   })
