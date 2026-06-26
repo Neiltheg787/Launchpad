@@ -37,7 +37,7 @@ const activePipelines = new Set<string>()
    Helpers
    ============================================================ */
 
-async function executePipeline(reportId: string): Promise<void> {
+export async function executePipeline(reportId: string): Promise<void> {
   if (activePipelines.has(reportId)) {
     broadcast(reportId, { type: 'log', agent: 'system', msg: 'Pipeline is already running...' })
     return

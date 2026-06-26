@@ -65,7 +65,6 @@ export default function Report() {
   const [logs, setLogs] = useState<{ agent: string; msg: string; ts: number }[]>([])
   const [fatalError, setFatalError] = useState<string | null>(null)
   const [view, setView] = useState<'running' | 'dashboard'>('running')
-  const startedAt = useRef(Date.now())
   const resumed = useRef(false)
 
   useEffect(() => {
@@ -78,10 +77,9 @@ export default function Report() {
       setStatuses((current) => ({ ...deriveStatuses(r), ...Object.fromEntries(Object.entries(current).filter(([, status]) => status === 'complete')) }))
       if (!sawSocketEvent) setLogs(progressLog(r))
       if (r.status === 'failed') setFatalError('Pipeline failed. Check backend logs for details.')
-      const hasAnyOutput = AGENTS.some((agent) => r[`${agent}_output`])
-      if (!hasAnyOutput && r.status === 'running' && !resumed.current && Date.now() - startedAt.current > 12_000) {
+      if ((r.status === 'running' || r.status === 'pending') && !resumed.current) {
         resumed.current = true
-        setLogs((l) => [...l, { agent: 'system', msg: 'No agent output yet. Nudging backend pipeline...', ts: Date.now() }])
+        setLogs((l) => [...l, { agent: 'system', msg: 'Keeping backend pipeline request alive...', ts: Date.now() }])
         api.resumeReport(id).catch((e) => {
           setLogs((l) => [...l, { agent: 'system', msg: `Resume failed: ${e.message}`, ts: Date.now() }])
         })
